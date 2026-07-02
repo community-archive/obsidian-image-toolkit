@@ -37,17 +37,12 @@ export const ZOOM_FACTOR = 0.8;
 
 export const IMG_VIEW_MIN = 30;
 
-export const ICONS = [{
-  id: 'zoom-to-100',
-  svg: `<g> <path id="svg_1" d="m42,6c-18.8,0 -34,15.2 -34,34s15.2,34 34,34c7.4,0 14.3,-2.4 19.9,-6.4l26.3,26.3l5.6,-5.6l-26,-26.1c5.1,-6 8.2,-13.7 8.2,-22.1c0,-18.9 -15.2,-34.1 -34,-34.1zm0,4c16.6,0 30,13.4 30,30s-13.4,30 -30,30s-30,-13.4 -30,-30s13.4,-30 30,-30z" stroke-width="2" stroke="currentColor" fill="currentColor"/> <text font-weight="bold" xml:space="preserve" text-anchor="start" font-family="Noto Sans JP" font-size="24" id="svg_2" y="48.5" x="24" stroke-width="0" stroke="#000" fill="#000000">1:1</text> </g>`
-}]
-
 export const SEPARATOR_SYMBOL = "---";
 
 export const TOOLBAR_CONF = [{
   title: "ZOOM_TO_100",
   class: 'toolbar_zoom_to_100',
-  icon: 'zoom-to-100',
+  icon: 'scan',
   enableToolbarIcon: true,
   enableMenu: true,
   enableHotKey: true
@@ -96,21 +91,21 @@ export const TOOLBAR_CONF = [{
 }, {
   title: "SCALE_X",
   class: 'toolbar_scale_x',
-  icon: 'move-horizontal',
+  icon: 'flip-horizontal',
   enableToolbarIcon: true,
   enableMenu: true,
   enableHotKey: true
 }, {
   title: "SCALE_Y",
   class: 'toolbar_scale_y',
-  icon: 'move-vertical',
+  icon: 'flip-vertical',
   enableToolbarIcon: true,
   enableMenu: true,
   enableHotKey: true
 }, {
   title: "INVERT_COLOR",
   class: 'toolbar_invert_color',
-  icon: 'droplet',
+  icon: 'contrast',
   enableToolbarIcon: true,
   enableMenu: true,
   enableHotKey: true
@@ -121,6 +116,13 @@ export const TOOLBAR_CONF = [{
   enableToolbarIcon: true,
   enableMenu: true,
   enableHotKey: true
+}, {
+  title: "SWITCH_TO_PIN_MODE",
+  class: 'toolbar_switch_to_pin_mode',
+  icon: 'pin',
+  enableToolbarIcon: true,
+  enableMenu: false,
+  enableHotKey: false
 }, {
   title: SEPARATOR_SYMBOL,
   enableToolbarIcon: false,
@@ -150,6 +152,10 @@ export const VIEW_IMG_SELECTOR = {
 
   OTHER: `.modal-content img`,
   OTHER_NO_LINK: `.modal-content img:not(a img)`,
+}
+
+export const VIEW_DIAGRAM_SELECTOR = {
+  EDITOR_AREAS: `.workspace-leaf-content[data-type='markdown'] .mermaid,.workspace-leaf-content[data-type='markdown'] .block-language-d2,.workspace-leaf-content[data-type='markdown'] .d2-chart,.workspace-leaf-content[data-type='markdown'] .block-language-plantuml,.workspace-leaf-content[data-type='markdown'] .block-language-plantuml-svg`
 }
 
 export const IMG_BORDER_WIDTH = {

@@ -7,6 +7,8 @@ export interface SettingsIto {
   viewMode: ViewMode;
 
   viewImageInEditor: boolean;
+  viewDiagramInEditor: boolean;
+  thumbnailMaxHeight: number;
   // CPB = Community Plugins Browser
   viewImageInCPB: boolean;
   viewImageWithLink: boolean;

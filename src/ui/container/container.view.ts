@@ -16,7 +16,7 @@ export abstract class ContainerView {
   protected doc: Document;
 
   // the clicked original image element
-  protected lastClickedImgEl: HTMLImageElement;
+  protected lastClickedImgEl: HTMLElement;
   protected lastClickedImgDefaultStyle = {
     borderWidth: '',
     borderStyle: '',
@@ -56,7 +56,7 @@ export abstract class ContainerView {
   }
 
   public getLastClickedImgEl = (): HTMLImageElement => {
-    return this.lastClickedImgEl;
+    return this.lastClickedImgEl as HTMLImageElement;
   }
 
   public getActiveImg = (): ImgCto => {
@@ -77,7 +77,7 @@ export abstract class ContainerView {
 
   abstract setActiveImgForMouseEvent(imgCto: ImgCto): void;
 
-  public getParentContainerEl = (targetEl?: HTMLImageElement): Element => {
+  public getParentContainerEl = (targetEl?: HTMLElement): Element => {
     if (!targetEl) {
       return this.parentContainerEl;
     }
@@ -95,12 +95,31 @@ export abstract class ContainerView {
    * @returns
    */
   public renderContainer = (targetEl: HTMLImageElement): void => {
-    if (!this.checkStatus()) return;
+    this.renderImageSource(targetEl, targetEl.src, targetEl.alt, null, false);
+  }
+
+  public renderDiagramContainer = (targetEl: HTMLElement, imgSrc: string, imgAlt: string, objectUrl?: string): void => {
+    this.renderImageSource(targetEl, imgSrc, imgAlt, objectUrl, true);
+  }
+
+  private renderImageSource = (targetEl: HTMLElement, imgSrc: string, imgAlt: string, objectUrl?: string, skipGallery?: boolean): void => {
+    if (!this.checkStatus()) {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      return;
+    }
     const matchedImg = this.initContainerView(targetEl, this.getParentContainerEl(targetEl));
-    if (!matchedImg) return;
+    if (!matchedImg) {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      return;
+    }
+    this.releaseObjectUrl(matchedImg);
+    matchedImg.objectUrl = objectUrl;
+    matchedImg.sourceType = skipGallery ? 'diagram' : 'image';
     this.openOitContainerView(matchedImg);
-    this.renderGalleryNavbar();
-    this.refreshImg(matchedImg, targetEl.src, targetEl.alt);
+    if (!skipGallery) {
+      this.renderGalleryNavbar();
+    }
+    this.refreshImg(matchedImg, imgSrc, imgAlt);
     matchedImg.mtime = new Date().getTime();
   }
 
@@ -109,7 +128,7 @@ export abstract class ContainerView {
    * @param targetEl
    * @param parentContainerEl  targetEl's body
    */
-  public initContainerView = (targetEl: HTMLImageElement, parentContainerEl: Element): ImgCto => {
+  public initContainerView = (targetEl: HTMLElement, parentContainerEl: Element): ImgCto => {
     const matchedImg = this.initContainerDom(parentContainerEl);
     if (!matchedImg) return null;
     matchedImg.targetOriginalImgEl = targetEl;
@@ -129,6 +148,7 @@ export abstract class ContainerView {
   public removeOitContainerView = () => {
     this.restoreBorderForLastClickedImg();
     this.removeGalleryNavbar();
+    this.imgInfo.imgList.forEach(this.releaseObjectUrl);
 
     this.imgInfo.oitContainerEl?.remove();
     this.imgInfo.oitContainerEl = null;
@@ -198,7 +218,7 @@ export abstract class ContainerView {
    * set 'data-oit-target' and lastClickedImgEl
    * @param targetEl
    */
-  protected setLastClickedImg = (targetEl: HTMLImageElement) => {
+  protected setLastClickedImg = (targetEl: HTMLElement) => {
     if (!targetEl) return;
     // 'data-oit-target' is set for locating current image
     targetEl.setAttribute('data-oit-target', '1');
@@ -207,7 +227,7 @@ export abstract class ContainerView {
   //endregion
 
   //region ================== (Original) Image Border ========================
-  protected addBorderForLastClickedImg = (targetEl: HTMLImageElement) => {
+  protected addBorderForLastClickedImg = (targetEl: HTMLElement) => {
     this.setLastClickedImg(targetEl);
     if (!targetEl || !this.plugin.settings.imageBorderToggle) return;
     const lastClickedImgStyle = targetEl?.style;
@@ -230,6 +250,12 @@ export abstract class ContainerView {
       lastClickedImgStyle.setProperty('border-style', this.lastClickedImgDefaultStyle.borderStyle);
       lastClickedImgStyle.setProperty('border-color', this.lastClickedImgDefaultStyle.borderColor);
     }
+  }
+
+  protected releaseObjectUrl = (imgCto: ImgCto) => {
+    if (!imgCto?.objectUrl) return;
+    URL.revokeObjectURL(imgCto.objectUrl);
+    imgCto.objectUrl = null;
   }
   //endregion
 
@@ -292,18 +318,27 @@ export abstract class ContainerView {
         imgCto.refreshImgInterval = null;
       }
       let realImg = new Image();
-      realImg.src = imgSrc;
-      imgCto.refreshImgInterval = setInterval((realImg) => {
-        if (realImg.width > 0 || realImg.height > 0) {
+      let rendered = false;
+      const renderLoadedImg = () => {
+        if (rendered) return;
+        rendered = true;
+        if (imgCto.refreshImgInterval) {
           clearInterval(imgCto.refreshImgInterval);
           imgCto.refreshImgInterval = null;
-          this.setImgViewPosition(ImgUtil.calculateImgZoomSize(realImg, imgCto,
-            this.parentContainerEl?.clientWidth, this.parentContainerEl?.clientHeight), 0);
-          this.renderImgView(imgCto.imgViewEl, imgSrc, imgAlt);
-          this.renderImgTip(imgCto);
-          imgCto.imgViewEl.style.setProperty('transform', imgCto.defaultImgStyle.transform);
-          imgCto.imgViewEl.style.setProperty('filter', imgCto.defaultImgStyle.filter);
-          imgCto.imgViewEl.style.setProperty('mix-blend-mode', imgCto.defaultImgStyle.mixBlendMode);
+        }
+        this.setImgViewPosition(ImgUtil.calculateImgZoomSize(realImg, imgCto,
+          this.parentContainerEl?.clientWidth, this.parentContainerEl?.clientHeight), 0);
+        this.renderImgView(imgCto.imgViewEl, imgSrc, imgAlt);
+        this.renderImgTip(imgCto);
+        imgCto.imgViewEl.style.setProperty('transform', imgCto.defaultImgStyle.transform);
+        imgCto.imgViewEl.style.setProperty('filter', imgCto.defaultImgStyle.filter);
+        imgCto.imgViewEl.style.setProperty('mix-blend-mode', imgCto.defaultImgStyle.mixBlendMode);
+      };
+      realImg.onload = renderLoadedImg;
+      realImg.src = imgSrc;
+      imgCto.refreshImgInterval = setInterval((realImg) => {
+        if (realImg.naturalWidth > 0 || realImg.naturalHeight > 0 || realImg.width > 0 || realImg.height > 0) {
+          renderLoadedImg();
         }
       }, 40, realImg);
     }
@@ -801,6 +836,14 @@ export abstract class ContainerView {
     activeImgViewEl.style.setProperty('margin-left', zoomData.left + 'px', 'important');
   }
 
+  /**
+   * Pin the currently active image onto the screen without switching the plugin's global view mode.
+   * Only meaningful in Normal mode; no-op elsewhere.
+   * @param activeImg
+   */
+  protected switchToPinMode = (activeImg: ImgCto): void => {
+  }
+
   public clickImgToolbar = (event: MouseEvent, targetElClass?: string, activeImg?: ImgCto): void => {
     if (!targetElClass && !activeImg) {
       if (!event) return;
@@ -846,6 +889,9 @@ export abstract class ContainerView {
         break;
       case 'toolbar_copy':
         ImgUtil.copyImage(activeImg.imgViewEl, activeImg.curWidth, activeImg.curHeight);
+        break;
+      case 'toolbar_switch_to_pin_mode':
+        this.switchToPinMode(activeImg);
         break;
       case 'toolbar_close':
         this.closeContainerView(event, activeImg);

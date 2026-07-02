@@ -1,12 +1,13 @@
-import { addIcon, Plugin, WorkspaceLeaf } from 'obsidian';
+import { Plugin, WorkspaceLeaf } from 'obsidian';
 import { DEFAULT_SETTINGS, ImageToolkitSettingTab } from './conf/settings'
-import {DEFAULT_VIEW_MODE, ICONS, MOVE_THE_IMAGE, SWITCH_THE_IMAGE, VIEW_IMG_SELECTOR, ViewMode} from './conf/constants'
+import {DEFAULT_VIEW_MODE, MOVE_THE_IMAGE, SWITCH_THE_IMAGE, VIEW_DIAGRAM_SELECTOR, VIEW_IMG_SELECTOR, ViewMode} from './conf/constants'
 import { NormalContainerView } from './ui/container/normalContainer.view';
 import { PinContainerView } from './ui/container/pinContainer.view';
 import { ContainerView } from "./ui/container/container.view";
 import { SettingsIto } from "./model/settings.to";
 import { ContainerFactory } from "./factory/containerFactory";
 import { randomUUID } from "crypto";
+import {DiagramUtil} from "./util/diagramUtil";
 
 export default class ImageToolkitPlugin extends Plugin {
 
@@ -14,9 +15,17 @@ export default class ImageToolkitPlugin extends Plugin {
 
   private readonly containerFactory = new ContainerFactory();
 
+  // auxiliary Pin-mode containers used by the "pin this image" toolbar action in Normal mode;
+  // kept independent of `settings.viewMode` so the global mode is never switched by this action.
+  // key: '' for the main window, otherwise the popout window's event id
+  private readonly pinModeContainers: Map<string, PinContainerView> = new Map();
+
   public imgSelector: string = ``;
+  public diagramSelector: string = ``;
 
   private static readonly IMG_ORIGIN_CURSOR = 'data-oit-origin-cursor';
+  private static readonly EDITOR_IMAGE_LAYOUT_CLASS = 'oit-editor-image-layout';
+  private static readonly EDITOR_IMAGE_MAX_HEIGHT_VAR = '--oit-editor-image-max-height';
 
   // data-oit-event: 标识new window是否已addEventListener for click
   private static readonly POPOUT_WINDOW_EVENT = 'data-oit-event';
@@ -33,6 +42,7 @@ export default class ImageToolkitPlugin extends Plugin {
 
     await this.initContainer(this.settings.viewMode);
 
+    this.refreshEditorImageLayout();
     this.refreshViewTrigger();
 
     // addEventListener for opened new windows
@@ -46,6 +56,7 @@ export default class ImageToolkitPlugin extends Plugin {
               const eventId = randomUUID();
               this.initContainer(this.settings.viewMode, eventId);
               bodyEl.setAttr(ImageToolkitPlugin.POPOUT_WINDOW_EVENT, eventId);
+              this.refreshEditorImageLayout(bodyEl.ownerDocument);
               this.refreshViewTrigger(bodyEl.ownerDocument);
             }
           }
@@ -60,26 +71,29 @@ export default class ImageToolkitPlugin extends Plugin {
     this.getAllContainerViews().forEach(container => {
       container.removeOitContainerView();
     });
+    this.pinModeContainers.forEach(container => container.removeOitContainerView());
+    this.pinModeContainers.clear();
+    this.clearEditorImageLayoutInAllDocuments();
     this.containerFactory.clearAll();
-    document.off('click', this.imgSelector, this.clickImage);
-    document.off('mouseover', this.imgSelector, this.mouseoverImg);
-    document.off('mouseout', this.imgSelector, this.mouseoutImg);
+    if (this.imgSelector) {
+      document.off('click', this.imgSelector, this.clickImage);
+      document.off('mouseover', this.imgSelector, this.mouseoverImg);
+      document.off('mouseout', this.imgSelector, this.mouseoutImg);
+    }
+    if (this.diagramSelector) {
+      document.removeEventListener('click', this.clickDiagram, true);
+      document.off('mouseover', this.diagramSelector, this.mouseoverDiagram);
+      document.off('mouseout', this.diagramSelector, this.mouseoutDiagram);
+    }
   }
 
   private async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     await this.checkViewMode(this.getViewMode());
-    await this.addIcons();
   }
 
   public async saveSettings() {
     await this.saveData(this.settings);
-  }
-
-  private addIcons = async () => {
-    for (const icon of ICONS) {
-      addIcon(icon.id, icon.svg);
-    }
   }
 
   async registerCommands() {
@@ -114,6 +128,52 @@ export default class ImageToolkitPlugin extends Plugin {
 
   public getAllContainerViews = (): ContainerView[] => {
     return this.containerFactory.getAllContainers();
+  }
+
+  public refreshEditorImageLayout = (doc?: Document) => {
+    if (doc) {
+      this.updateEditorImageLayout(doc);
+      return;
+    }
+    this.updateEditorImageLayoutInAllDocuments();
+  }
+
+  private updateEditorImageLayoutInAllDocuments = () => {
+    this.updateEditorImageLayout(document);
+    this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
+      const ownerDocument = leaf.view.containerEl.ownerDocument;
+      if (ownerDocument && ownerDocument !== document) {
+        this.updateEditorImageLayout(ownerDocument);
+      }
+    });
+  }
+
+  private clearEditorImageLayoutInAllDocuments = () => {
+    this.clearEditorImageLayout(document);
+    this.app.workspace.iterateAllLeaves((leaf: WorkspaceLeaf) => {
+      const ownerDocument = leaf.view.containerEl.ownerDocument;
+      if (ownerDocument && ownerDocument !== document) {
+        this.clearEditorImageLayout(ownerDocument);
+      }
+    });
+  }
+
+  private updateEditorImageLayout = (doc: Document) => {
+    const maxHeight = this.normalizeThumbnailMaxHeight(this.settings.thumbnailMaxHeight);
+    doc?.body?.classList.add(ImageToolkitPlugin.EDITOR_IMAGE_LAYOUT_CLASS);
+    doc?.body?.style.setProperty(ImageToolkitPlugin.EDITOR_IMAGE_MAX_HEIGHT_VAR, `${maxHeight}px`);
+  }
+
+  private clearEditorImageLayout = (doc: Document) => {
+    doc?.body?.classList.remove(ImageToolkitPlugin.EDITOR_IMAGE_LAYOUT_CLASS);
+    doc?.body?.style.removeProperty(ImageToolkitPlugin.EDITOR_IMAGE_MAX_HEIGHT_VAR);
+  }
+
+  private normalizeThumbnailMaxHeight = (value: number): number => {
+    if (!Number.isFinite(value)) {
+      return DEFAULT_SETTINGS.thumbnailMaxHeight;
+    }
+    return Math.max(50, Math.min(1000, Math.floor(value)));
   }
 
   private initContainer = async (viewMode: ViewMode, popoutWindowEventId?: string) => {
@@ -154,11 +214,38 @@ export default class ImageToolkitPlugin extends Plugin {
   private isClickable = (targetEl: HTMLImageElement, event: MouseEvent): ContainerView => {
     let container: ContainerView;
     if (this.isImageElement(targetEl)
+      && !this.isInsideDiagram(targetEl)
       && (container = this.containerFactory.getContainer(targetEl))
       && container.checkHotkeySettings(event, this.settings.viewTriggerHotkey)) {
       return container;
     }
     return null;
+  }
+
+  private isClickableDiagram = (targetEl: HTMLElement, event: MouseEvent): ContainerView => {
+    let container: ContainerView;
+    if (targetEl
+      && (container = this.containerFactory.getContainer(targetEl))
+      && container.checkHotkeySettings(event, this.settings.viewTriggerHotkey)) {
+      return container;
+    }
+    return null;
+  }
+
+  /**
+   * Get (or lazily create) the auxiliary Pin-mode container for the window that `targetEl` belongs to.
+   * Used only by the "pin this image" toolbar action in Normal mode; does not touch `settings.viewMode`.
+   * @param targetEl
+   */
+  public getPinModeContainer = (targetEl: HTMLElement): PinContainerView => {
+    const bodyEl = targetEl?.matchParent('body');
+    const key = bodyEl?.getAttribute(ImageToolkitPlugin.POPOUT_WINDOW_EVENT) || '';
+    let pinContainer = this.pinModeContainers.get(key);
+    if (!pinContainer) {
+      pinContainer = new PinContainerView(this);
+      this.pinModeContainers.set(key, pinContainer);
+    }
+    return pinContainer;
   }
 
   public switchViewMode = async (viewMode: ViewMode) => {
@@ -190,8 +277,15 @@ export default class ImageToolkitPlugin extends Plugin {
       doc.off('click', this.imgSelector, this.clickImage);
       doc.off('mouseover', this.imgSelector, this.mouseoverImg);
       doc.off('mouseout', this.imgSelector, this.mouseoutImg);
+      this.imgSelector = '';
     }
-    if (!viewImageOther && !viewImageInEditor && !viewImageInCPB && !viewImageWithLink) {
+    if (this.diagramSelector) {
+      doc.removeEventListener('click', this.clickDiagram, true);
+      doc.off('mouseover', this.diagramSelector, this.mouseoverDiagram);
+      doc.off('mouseout', this.diagramSelector, this.mouseoutDiagram);
+      this.diagramSelector = '';
+    }
+    if (!viewImageOther && !viewImageInEditor && !viewImageInCPB && !viewImageWithLink && !this.settings.viewDiagramInEditor) {
       return;
     }
     let selector = ``;
@@ -213,6 +307,13 @@ export default class ImageToolkitPlugin extends Plugin {
       doc.on('click', this.imgSelector, this.clickImage);
       doc.on('mouseover', this.imgSelector, this.mouseoverImg);
       doc.on('mouseout', this.imgSelector, this.mouseoutImg);
+    }
+
+    if (viewImageInEditor && this.settings.viewDiagramInEditor) {
+      this.diagramSelector = VIEW_DIAGRAM_SELECTOR.EDITOR_AREAS;
+      doc.addEventListener('click', this.clickDiagram, true);
+      doc.on('mouseover', this.diagramSelector, this.mouseoverDiagram);
+      doc.on('mouseout', this.diagramSelector, this.mouseoutDiagram);
     }
   }
 
@@ -241,6 +342,48 @@ export default class ImageToolkitPlugin extends Plugin {
       return;
     }
     targetEl.style.cursor = targetEl.getAttribute(ImageToolkitPlugin.IMG_ORIGIN_CURSOR);
+  }
+
+  private clickDiagram = (event: MouseEvent) => {
+    if (this.isDiagramControlClick(event.target as HTMLElement)) return;
+
+    const targetEl = this.getClosestDiagramElement(event.target as HTMLElement);
+    const container: ContainerView = this.isClickableDiagram(targetEl, event);
+    if (!container) return;
+
+    const source = DiagramUtil.createImageSource(targetEl);
+    if (!source) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    container.renderDiagramContainer(targetEl, source.src, source.alt, source.objectUrl);
+  }
+
+  private mouseoverDiagram = (event: MouseEvent) => {
+    const targetEl = this.getClosestDiagramElement(event.target as HTMLElement);
+    if (!this.isClickableDiagram(targetEl, event)) return;
+    if (null == targetEl.getAttribute(ImageToolkitPlugin.IMG_ORIGIN_CURSOR)) {
+      targetEl.setAttribute(ImageToolkitPlugin.IMG_ORIGIN_CURSOR, targetEl.style.cursor || '');
+    }
+    targetEl.style.cursor = 'zoom-in';
+  }
+
+  private mouseoutDiagram = (event: MouseEvent) => {
+    const targetEl = this.getClosestDiagramElement(event.target as HTMLElement);
+    if (!this.isClickableDiagram(targetEl, event)) return;
+    targetEl.style.cursor = targetEl.getAttribute(ImageToolkitPlugin.IMG_ORIGIN_CURSOR);
+  }
+
+  private getClosestDiagramElement = (targetEl: HTMLElement): HTMLElement => {
+    if (!targetEl || !this.diagramSelector) return null;
+    return targetEl.closest(this.diagramSelector) as HTMLElement;
+  }
+
+  private isDiagramControlClick = (targetEl: HTMLElement): boolean => {
+    return !!targetEl?.closest('.Preview__Recompile');
+  }
+
+  private isInsideDiagram = (targetEl: HTMLElement): boolean => {
+    return !!this.getClosestDiagramElement(targetEl);
   }
 
 }

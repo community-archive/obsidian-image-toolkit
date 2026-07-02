@@ -14,6 +14,10 @@ export default {
   VIEW_IMAGE_GLOBAL_DESC: 'You can zoom, rotate, drag, and invert it on the popup layer when clicking an image.', // @Deprecated
   VIEW_IMAGE_IN_EDITOR_NAME: 'Click and view an image in the Editor Area',
   VIEW_IMAGE_IN_EDITOR_DESC: 'Turn on this option if you want to click and view an image in the Editor Area.',
+  VIEW_DIAGRAM_IN_EDITOR_NAME: 'Click and view generated diagrams in the Editor Area',
+  VIEW_DIAGRAM_IN_EDITOR_DESC: 'Turn on this option if you want to click and view rendered Mermaid, D2, and similar diagrams. PlantUML that already renders as a normal image will continue to use the existing image preview flow.',
+  THUMBNAIL_MAX_HEIGHT_NAME: 'Maximum editor image height',
+  THUMBNAIL_MAX_HEIGHT_DESC: 'Images and rendered diagrams in the Editor Area are centered and limited to this height. Enter an integer from 50 to 1000.',
   // CPB = COMMUNITY_PLUGINS_BROWSER
   VIEW_IMAGE_IN_CPB_NAME: 'Click and view an image in the Community Plugins browser',
   VIEW_IMAGE_IN_CPB_DESC: 'Turn on this option if you want to click and view an image in the Community Plugins browser.',
@@ -132,6 +136,7 @@ export default {
   SCALE_Y: 'flip along y-axis',
   INVERT_COLOR: 'invert color',
   COPY: 'copy',
+  SWITCH_TO_PIN_MODE: 'pin this image',
   CLOSE: 'close',
 
   // tip:

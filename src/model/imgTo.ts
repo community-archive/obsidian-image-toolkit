@@ -87,7 +87,7 @@ export class ImgCto {
   mtime: number; // modified time
   popup: boolean = false;
 
-  targetOriginalImgEl: HTMLImageElement;
+  targetOriginalImgEl: HTMLElement;
 
   imgViewEl: HTMLImageElement; // 'oit-img-view'
   refreshImgInterval: NodeJS.Timeout;
@@ -107,6 +107,8 @@ export class ImgCto {
   scaleX: boolean = false; // scaleX(-1)
   scaleY: boolean = false; // scaleY(-1)
   fullScreen: boolean = false; // whether the image is being previewed in full-screen mode
+  objectUrl?: string;
+  sourceType?: 'image' | 'diagram';
 
   defaultImgStyle = {
     transform: 'none',
@@ -126,4 +128,3 @@ export class ImgCto {
     this.imgViewEl = imgViewEl;
   }
 }
-

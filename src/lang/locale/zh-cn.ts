@@ -12,6 +12,10 @@ export default {
   VIEW_IMAGE_GLOBAL_DESC: '开启后，在任何地方点击图片都可以弹出预览界面，可对图片进行缩放、旋转、拖动、和反色等。',
   VIEW_IMAGE_IN_EDITOR_NAME: '支持在编辑区域预览图片',
   VIEW_IMAGE_IN_EDITOR_DESC: '开启后，支持在编辑区域，点击图片预览。',
+  VIEW_DIAGRAM_IN_EDITOR_NAME: '支持在编辑区域预览文本生成图',
+  VIEW_DIAGRAM_IN_EDITOR_DESC: '开启后，支持点击 Mermaid、D2 等渲染图表进行预览。PlantUML 若已渲染为普通图片，会继续使用原图片预览逻辑。',
+  THUMBNAIL_MAX_HEIGHT_NAME: '编辑区域图片最大高度',
+  THUMBNAIL_MAX_HEIGHT_DESC: '编辑区域内的图片和渲染图表会居中展示，并限制到这个最大高度；请输入 50～1000 的整数。',
   // CPB = COMMUNITY_PLUGINS_BROWSER
   VIEW_IMAGE_IN_CPB_NAME: '支持在社区插件页面预览图片',
   VIEW_IMAGE_IN_CPB_DESC: '开启后，支持在社区插件页面，点击图片预览。',
@@ -123,6 +127,7 @@ export default {
   SCALE_Y: 'y轴翻转',
   INVERT_COLOR: '反色',
   COPY: '复制',
+  SWITCH_TO_PIN_MODE: '贴图',
   CLOSE: '关闭',
 
   // tip:

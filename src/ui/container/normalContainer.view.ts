@@ -1,3 +1,4 @@
+import {setIcon} from 'obsidian';
 import {OIT_CLASS, TOOLBAR_CONF} from 'src/conf/constants';
 import {t} from 'src/lang/helpers';
 import ImageToolkitPlugin from 'src/main';
@@ -16,6 +17,11 @@ export class NormalContainerView extends ContainerView {
   public setActiveImgForMouseEvent(imgCto: ImgCto): void {
 
   }
+
+  // a NormalContainerView instance is always in Normal mode, regardless of the plugin's global view mode setting
+  // (an auxiliary PinContainerView may run alongside it for the "pin this image" toolbar action)
+  public isPinMode = (): boolean => false;
+  public isNormalMode = (): boolean => true;
 
   //region ================== Container View ========================
   public initContainerDom = (parentContainerEl: Element): ImgCto => {
@@ -57,6 +63,7 @@ export class NormalContainerView extends ContainerView {
         toolbarLi.setAttribute('alt', toolbar.title);
         // @ts-ignore
         toolbarLi.setAttribute('title', t(toolbar.title));
+        if (toolbar.icon) setIcon(toolbarLi, toolbar.icon);
       }
       // add event: for oit-img-toolbar ul
       imgToolbarUlEL.addEventListener('click', this.clickImgToolbar);
@@ -93,6 +100,7 @@ export class NormalContainerView extends ContainerView {
       this.imgInfo.oitContainerEl.style.setProperty('display', 'none'); // hide 'oit-normal'
       this.renderImgTitle('', '');
       this.renderImgView(activeImg.imgViewEl, '', '');
+      this.releaseObjectUrl(activeImg);
       // remove events
       this.imgGlobalStatus.popup = false;
       activeImg.popup = false;
@@ -101,6 +109,29 @@ export class NormalContainerView extends ContainerView {
     }
     if (this.plugin.settings.galleryNavbarToggle && this.galleryNavbarView) {
       this.galleryNavbarView.closeGalleryNavbar();
+    }
+  }
+
+  /**
+   * "pin this image" toolbar action: close it in Normal mode and hand it off to
+   * the plugin's auxiliary Pin-mode container, without switching the global view mode.
+   * @param activeImg
+   */
+  protected switchToPinMode = (activeImg: ImgCto): void => {
+    const targetEl = activeImg?.targetOriginalImgEl;
+    if (!targetEl) return;
+    const imgAlt = activeImg.imgViewEl?.alt;
+    const imgSrc = activeImg.imgViewEl?.src;
+    const isDiagram = 'diagram' === activeImg.sourceType;
+    const objectUrl = activeImg.objectUrl;
+    activeImg.objectUrl = null; // ownership is handed over to the pin container; skip release below
+    this.closeContainerView(null, activeImg);
+
+    const pinContainer = this.plugin.getPinModeContainer(targetEl);
+    if (isDiagram) {
+      pinContainer.renderDiagramContainer(targetEl, imgSrc, imgAlt, objectUrl);
+    } else {
+      pinContainer.renderContainer(targetEl as HTMLImageElement);
     }
   }
   //endregion

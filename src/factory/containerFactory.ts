@@ -26,7 +26,7 @@ export class ContainerFactory {
     return this.popoutContainers;
   }
 
-  public getContainer = (targetEl: HTMLImageElement): ContainerView => {
+  public getContainer = (targetEl: HTMLElement): ContainerView => {
     const bodyEl = targetEl?.matchParent('body');
     if (!bodyEl) return null;
     const oitEventKey = bodyEl.getAttribute('data-oit-event');

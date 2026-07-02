@@ -23,6 +23,8 @@ export const DEFAULT_SETTINGS: SettingsIto = {
   viewMode: ViewMode.Normal,
 
   viewImageInEditor: true,
+  viewDiagramInEditor: true,
+  thumbnailMaxHeight: 360,
   viewImageInCPB: true,
   viewImageWithLink: true,
   viewImageOther: true,
@@ -403,6 +405,38 @@ export class ImageToolkitSettingTab extends PluginSettingTab {
         }));
 
     new Setting(containerEl)
+      .setName(t("VIEW_DIAGRAM_IN_EDITOR_NAME"))
+      .setDesc(t("VIEW_DIAGRAM_IN_EDITOR_DESC"))
+      .addToggle(toggle => toggle
+        .setValue(this.plugin.settings.viewDiagramInEditor)
+        .onChange(async (value) => {
+          this.plugin.settings.viewDiagramInEditor = value;
+          this.plugin.refreshViewTrigger();
+          await this.plugin.saveSettings();
+        }));
+
+    new Setting(containerEl)
+      .setName(t("THUMBNAIL_MAX_HEIGHT_NAME"))
+      .setDesc(t("THUMBNAIL_MAX_HEIGHT_DESC"))
+      .addText(text => {
+        text.inputEl.type = 'number';
+        text.inputEl.min = '50';
+        text.inputEl.max = '1000';
+        text.inputEl.step = '1';
+        text
+          .setValue(String(this.normalizeThumbnailMaxHeight(this.plugin.settings.thumbnailMaxHeight)))
+          .onChange(async (value) => {
+            const normalizedValue = this.normalizeThumbnailMaxHeight(value);
+            this.plugin.settings.thumbnailMaxHeight = normalizedValue;
+            this.plugin.refreshEditorImageLayout();
+            await this.plugin.saveSettings();
+          });
+        text.inputEl.addEventListener('blur', () => {
+          text.setValue(String(this.normalizeThumbnailMaxHeight(text.getValue())));
+        });
+      });
+
+    new Setting(containerEl)
       .setName(t("VIEW_IMAGE_IN_CPB_NAME"))
       .setDesc(t("VIEW_IMAGE_IN_CPB_DESC"))
       .addToggle(toggle => toggle
@@ -493,6 +527,14 @@ export class ImageToolkitSettingTab extends PluginSettingTab {
     for (const setting of settings) {
       setting?.setDisabled(disabled)
     }
+  }
+
+  private normalizeThumbnailMaxHeight(value: string | number): number {
+    const parsedValue = typeof value === 'number' ? value : Number.parseInt(value, 10);
+    if (!Number.isFinite(parsedValue)) {
+      return DEFAULT_SETTINGS.thumbnailMaxHeight;
+    }
+    return Math.max(50, Math.min(1000, Math.floor(parsedValue)));
   }
 
   getDropdownOptions(): Record<string, string> {

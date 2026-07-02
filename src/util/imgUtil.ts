@@ -19,24 +19,26 @@ export class ImgUtil {
     const windowZoomWidth = windowWidth * ZOOM_FACTOR;
     const windowZoomHeight = windowHeight * ZOOM_FACTOR;
 
-    let tempWidth = realImg.width, tempHeight = realImg.height;
-    if (realImg.height > windowZoomHeight) {
+    const realWidth = realImg.naturalWidth || realImg.width;
+    const realHeight = realImg.naturalHeight || realImg.height;
+    let tempWidth = realWidth, tempHeight = realHeight;
+    if (realHeight > windowZoomHeight) {
       tempHeight = windowZoomHeight;
-      if ((tempWidth = tempHeight / realImg.height * realImg.width) > windowZoomWidth) {
+      if ((tempWidth = tempHeight / realHeight * realWidth) > windowZoomWidth) {
         tempWidth = windowZoomWidth;
       }
-    } else if (realImg.width > windowZoomWidth) {
+    } else if (realWidth > windowZoomWidth) {
       tempWidth = windowZoomWidth;
-      tempHeight = tempWidth / realImg.width * realImg.height;
+      tempHeight = tempWidth / realWidth * realHeight;
     }
-    tempHeight = tempWidth * realImg.height / realImg.width;
+    tempHeight = tempWidth * realHeight / realWidth;
     // cache image info: curWidth, curHeight, realWidth, realHeight, left, top
     imgCto.left = (windowWidth - tempWidth) / 2;
     imgCto.top = (windowHeight - tempHeight) / 2;
     imgCto.curWidth = tempWidth;
     imgCto.curHeight = tempHeight;
-    imgCto.realWidth = realImg.width;
-    imgCto.realHeight = realImg.height;
+    imgCto.realWidth = realWidth;
+    imgCto.realHeight = realHeight;
 
     /* console.log('calculateImgZoomSize', 'realImg: ' + realImg.width + ',' + realImg.height,
         'tempSize: ' + tempWidth + ',' + tempHeight,
