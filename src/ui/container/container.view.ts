@@ -786,6 +786,7 @@ export abstract class ContainerView {
     event.stopPropagation();
     // @ts-ignore
     const delta = typeof event.wheelDelta === 'number' ? event.wheelDelta : -event.deltaY;
+    if (!delta) return;
     this.zoomAndRender(0 < delta ? 0.1 : -0.1, event);
   }
 

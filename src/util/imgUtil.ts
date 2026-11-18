@@ -154,14 +154,28 @@ export class ImgUtil {
         if (!srcBlob) {
           const fs = require('fs');
           const urlMod = require('url');
-          const cleanUrl = src.split('?')[0].replace(/^app:\/\/[^/]+\//i, 'file:///');
+          const cleanUrl = src.split(/[?#]/)[0].replace(/^app:\/\/[^/]+\//i, 'file:///');
           const filePath = urlMod.fileURLToPath(cleanUrl);
           const buf = await fs.promises.readFile(filePath);
-          const isSvg = /\.svg$/i.test(filePath);
-          srcBlob = new Blob([buf], { type: isSvg ? 'image/svg+xml' : 'application/octet-stream' });
+          const extMatch = filePath.match(/\.([a-z0-9]+)$/i);
+          const ext = extMatch ? extMatch[1].toLowerCase() : '';
+          const mimeMap: Record<string, string> = {
+            png: 'image/png',
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            avif: 'image/avif',
+            bmp: 'image/bmp',
+            svg: 'image/svg+xml',
+          };
+          srcBlob = new Blob([buf], { type: mimeMap[ext] || 'application/octet-stream' });
         }
       } else {
         const res = await fetch(src);
+        if (!res.ok) {
+          throw new Error(`Failed to fetch image: ${res.status}`);
+        }
         srcBlob = await res.blob();
       }
       const objectUrl = URL.createObjectURL(srcBlob);
